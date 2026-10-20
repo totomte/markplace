@@ -42,7 +42,7 @@ class MainActivity : Activity() {
 
         nameInput = EditText(this).apply {
             hint = "Name of this place (e.g. Home, Dive boat)"
-            singleLine = true
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_SINGLE_LINE
             imeOptions = EditorInfo.IME_ACTION_DONE
         }
         layout.addView(nameInput)
