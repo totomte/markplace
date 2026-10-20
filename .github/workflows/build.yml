@@ -17,9 +17,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
+      # Runner images ship with the Android SDK preinstalled; no setup action needed
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
