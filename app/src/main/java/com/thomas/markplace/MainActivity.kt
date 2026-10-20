@@ -23,6 +23,7 @@ class MainActivity : Activity() {
 
     private lateinit var spotsFile: File
     private lateinit var nameInput: EditText
+    private lateinit var coordsInput: EditText
     private lateinit var listAdapter: ArrayAdapter<String>
     private val spots = mutableListOf<Triple<String, String, String>>() // name, coords, timestamp
 
@@ -49,6 +50,19 @@ class MainActivity : Activity() {
 
         val markButton = Button(this).apply { text = "📍 Mark current location" }
         layout.addView(markButton)
+
+        coordsInput = EditText(this).apply {
+            hint = "Coordinates to save by hand (e.g. 27.915817,34.329946)"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_DONE
+        }
+        layout.addView(coordsInput)
+
+        val saveManualButton = Button(this).apply { text = "💾 Save entered coordinates" }
+        layout.addView(saveManualButton)
+
+        val exportButton = Button(this).apply { text = "📤 Export list to Documents" }
+        layout.addView(exportButton)
 
         val openMapsButton = Button(this).apply { text = "🗺 Open plain coordinates in Maps" }
         layout.addView(openMapsButton)
@@ -99,6 +113,19 @@ class MainActivity : Activity() {
             clipboard.setPrimaryClip(android.content.ClipData.newPlainText("coords", coords))
             Toast.makeText(this, "Copied: $coords", Toast.LENGTH_SHORT).show()
         }
+
+        saveManualButton.setOnClickListener {
+            val name = nameInput.text.toString().trim().ifEmpty { "Unnamed spot" }
+            val coords = extractCoords(coordsInput.text.toString()) ?: run {
+                Toast.makeText(this, "Enter coordinates like 27.915817,34.329946", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            val (la, lo) = coords.split(",").map { it.toDouble() }
+            saveSpot(name, la, lo)
+            coordsInput.setText("")
+        }
+
+        exportButton.setOnClickListener { exportList() }
 
         openMapsButton.setOnClickListener {
             val text = nameInput.text.toString().trim()
@@ -155,6 +182,18 @@ class MainActivity : Activity() {
         loadSpots()
         nameInput.setText("")
         Toast.makeText(this, "Saved $name at $coords", Toast.LENGTH_LONG).show()
+    }
+
+    private fun exportList() {
+        try {
+            val docs = File("/storage/emulated/0/Documents")
+            if (!docs.exists()) docs.mkdirs()
+            val out = File(docs, "markplace_spots.txt")
+            out.writeText(spotsFile.readText())
+            Toast.makeText(this, "Exported to Documents/markplace_spots.txt", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun loadSpots() {
