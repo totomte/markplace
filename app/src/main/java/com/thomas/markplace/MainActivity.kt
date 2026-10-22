@@ -2,6 +2,7 @@ package com.thomas.markplace
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -17,7 +18,7 @@ import java.util.Locale
 
 /**
  * MarkPlace — mark your current location, name it, save coordinates,
- * and reopen any saved place in Google Maps later.
+ * reopen any saved place in Google Maps, or delete saved spots.
  */
 class MainActivity : Activity() {
 
@@ -25,7 +26,7 @@ class MainActivity : Activity() {
     private lateinit var nameInput: EditText
     private lateinit var coordsInput: EditText
     private lateinit var listAdapter: ArrayAdapter<String>
-    private val spots = mutableListOf<Triple<String, String, String>>() // name, coords, timestamp
+    private val spots = mutableListOf<Triple<String, String, String>>() // name, coords, timestamp (Newest first)
 
     private val PERMISSION_REQUEST = 42
 
@@ -35,7 +36,6 @@ class MainActivity : Activity() {
         spotsFile = File(getExternalFilesDir(null), "saved_spots.txt")
         if (!spotsFile.exists()) spotsFile.writeText("")
 
-        // Simple vertical layout built programmatically — no XML needed
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 48, 48, 48)
@@ -99,19 +99,42 @@ class MainActivity : Activity() {
             }
         }
 
-        // Long-press a saved place to open it in Google Maps
-        listView.setOnItemLongClickListener { _, _, position, _ ->
-            val (name, coords, _) = spots[position]
-            openInMaps(coords, name)
-            true
+        // Tap a spot to show action dialog (Open, Copy, Delete)
+        listView.setOnItemClickListener { _, _, position, _ ->
+            if (position in spots.indices) {
+                val (name, coords, ts) = spots[position]
+                val options = arrayOf("🗺 Open in Maps", "📋 Copy coordinates", "🗑 Delete spot")
+                AlertDialog.Builder(this)
+                    .setTitle(name)
+                    .setItems(options) { _, which ->
+                        when (which) {
+                            0 -> openInMaps(coords, name)
+                            1 -> {
+                                val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("coords", coords))
+                                Toast.makeText(this, "Copied: $coords", Toast.LENGTH_SHORT).show()
+                            }
+                            2 -> {
+                                AlertDialog.Builder(this)
+                                    .setTitle("Delete Spot?")
+                                    .setMessage("Delete '$name'?")
+                                    .setPositiveButton("Delete") { _, _ -> deleteSpot(position) }
+                                    .setNegativeButton("Cancel", null)
+                                    .show()
+                            }
+                        }
+                    }
+                    .show()
+            }
         }
 
-        // Tap a saved place to copy the coordinates to clipboard
-        listView.setOnItemClickListener { _, _, position, _ ->
-            val (_, coords, _) = spots[position]
-            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("coords", coords))
-            Toast.makeText(this, "Copied: $coords", Toast.LENGTH_SHORT).show()
+        // Long-press directly opens in Google Maps
+        listView.setOnItemLongClickListener { _, _, position, _ ->
+            if (position in spots.indices) {
+                val (name, coords, _) = spots[position]
+                openInMaps(coords, name)
+            }
+            true
         }
 
         saveManualButton.setOnClickListener {
@@ -158,7 +181,6 @@ class MainActivity : Activity() {
         if (lastFix != null) {
             saveSpot(name, lastFix.latitude, lastFix.longitude)
         } else {
-            // No cached fix — request a fresh one
             lm.getCurrentLocation(
                 android.location.LocationManager.GPS_PROVIDER,
                 null,
@@ -184,6 +206,20 @@ class MainActivity : Activity() {
         Toast.makeText(this, "Saved $name at $coords", Toast.LENGTH_LONG).show()
     }
 
+    private fun deleteSpot(position: Int) {
+        if (position in spots.indices) {
+            val (name, _, _) = spots[position]
+            spots.removeAt(position)
+            // Save remaining spots in chronological order (oldest first)
+            val lines = spots.reversed().map { (n, c, t) -> "$n | $c | $t" }
+            spotsFile.writeText(if (lines.isNotEmpty()) lines.joinToString("
+") + "
+" else "")
+            loadSpots()
+            Toast.makeText(this, "Deleted $name", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun exportList() {
         try {
             val docs = File("/storage/emulated/0/Documents")
@@ -198,12 +234,16 @@ class MainActivity : Activity() {
 
     private fun loadSpots() {
         spots.clear()
-        spotsFile.readLines().filter { it.isNotBlank() }.forEach { line ->
-            val parts = line.split(" | ")
-            if (parts.size >= 2) spots.add(Triple(parts[0], parts[1], parts.getOrElse(2) { "" }))
+        if (spotsFile.exists()) {
+            spotsFile.readLines().filter { it.isNotBlank() }.forEach { line ->
+                val parts = line.split(" | ")
+                if (parts.size >= 2) spots.add(Triple(parts[0], parts[1], parts.getOrElse(2) { "" }))
+            }
         }
+        // Reverse so index 0 = newest spot, matching the displayed list order!
+        spots.reverse()
         listAdapter.clear()
-        for ((name, coords, ts) in spots.reversed()) {
+        for ((name, coords, ts) in spots) {
             listAdapter.add("$name\n$coords  ·  $ts")
         }
         listAdapter.notifyDataSetChanged()
@@ -219,7 +259,6 @@ class MainActivity : Activity() {
     }
 
     private fun openInMaps(coords: String, name: String?) {
-        // api=1 query works in both Google Maps app and any browser
         val uri = Uri.parse("https://www.google.com/maps/search/?api=1&query=$coords")
         startActivity(Intent(Intent.ACTION_VIEW, uri))
     }
