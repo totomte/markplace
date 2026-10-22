@@ -18,7 +18,7 @@ import java.util.Locale
 
 /**
  * MarkPlace — mark your current location, name it, save coordinates,
- * reopen any saved place in Google Maps, or delete saved spots.
+ * reopen any saved place in MAPS.ME or Google Maps, or delete saved spots.
  */
 class MainActivity : Activity() {
 
@@ -103,7 +103,7 @@ class MainActivity : Activity() {
         listView.setOnItemClickListener { _, _, position, _ ->
             if (position in spots.indices) {
                 val (name, coords, ts) = spots[position]
-                val options = arrayOf("🗺 Open in Maps", "📋 Copy coordinates", "🗑 Delete spot")
+                val options = arrayOf("🗺 Open in MAPS.ME", "📋 Copy coordinates", "🗑 Delete spot")
                 AlertDialog.Builder(this)
                     .setTitle(name)
                     .setItems(options) { _, which ->
@@ -128,7 +128,7 @@ class MainActivity : Activity() {
             }
         }
 
-        // Long-press directly opens in Google Maps
+        // Long-press directly opens in MAPS.ME
         listView.setOnItemLongClickListener { _, _, position, _ ->
             if (position in spots.indices) {
                 val (name, coords, _) = spots[position]
@@ -210,11 +210,9 @@ class MainActivity : Activity() {
         if (position in spots.indices) {
             val (name, _, _) = spots[position]
             spots.removeAt(position)
-            // Save remaining spots in chronological order (oldest first)
             val lines = spots.reversed().map { (n, c, t) -> "$n | $c | $t" }
-            spotsFile.writeText(if (lines.isNotEmpty()) lines.joinToString("
-") + "
-" else "")
+            val content = if (lines.isNotEmpty()) lines.joinToString("\n") + "\n" else ""
+            spotsFile.writeText(content)
             loadSpots()
             Toast.makeText(this, "Deleted $name", Toast.LENGTH_SHORT).show()
         }
@@ -240,7 +238,6 @@ class MainActivity : Activity() {
                 if (parts.size >= 2) spots.add(Triple(parts[0], parts[1], parts.getOrElse(2) { "" }))
             }
         }
-        // Reverse so index 0 = newest spot, matching the displayed list order!
         spots.reverse()
         listAdapter.clear()
         for ((name, coords, ts) in spots) {
@@ -250,7 +247,7 @@ class MainActivity : Activity() {
     }
 
     private fun extractCoords(text: String): String? {
-        val regex = Regex("""(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)""")
+        val regex = Regex("""(-?d{1,3}.d+)s*,s*(-?d{1,3}.d+)""")
         val m = regex.find(text) ?: return null
         val (lat, lon) = m.destructured
         val la = lat.toDouble(); val lo = lon.toDouble()
