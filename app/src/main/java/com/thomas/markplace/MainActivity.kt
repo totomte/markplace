@@ -18,7 +18,8 @@ import java.util.Locale
 
 /**
  * MarkPlace — mark your current location, name it, save coordinates,
- * reopen any saved place in MAPS.ME or Google Maps, or delete saved spots.
+ * reopen any saved place in MAPS.ME or Google Maps, delete saved spots,
+ * or export/import spots with Documents/Obsidian Vault.
  */
 class MainActivity : Activity() {
 
@@ -63,6 +64,9 @@ class MainActivity : Activity() {
 
         val exportButton = Button(this).apply { text = "📤 Export list to Documents" }
         layout.addView(exportButton)
+
+        val importButton = Button(this).apply { text = "📥 Import list from Documents" }
+        layout.addView(importButton)
 
         val openMapsButton = Button(this).apply { text = "🗺 Open plain coordinates in Maps" }
         layout.addView(openMapsButton)
@@ -149,6 +153,7 @@ class MainActivity : Activity() {
         }
 
         exportButton.setOnClickListener { exportList() }
+        importButton.setOnClickListener { importList() }
 
         openMapsButton.setOnClickListener {
             val text = nameInput.text.toString().trim()
@@ -227,6 +232,36 @@ class MainActivity : Activity() {
             Toast.makeText(this, "Exported to Documents/markplace_spots.txt", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun importList() {
+        try {
+            val candidate1 = File("/storage/emulated/0/Documents/markplace_spots.txt")
+            val candidate2 = File("/storage/emulated/0/Obsidian Vault/markplace_spots.txt")
+            val srcFile = if (candidate1.exists()) candidate1 else if (candidate2.exists()) candidate2 else null
+
+            if (srcFile == null || !srcFile.exists()) {
+                Toast.makeText(this, "No markplace_spots.txt found to import", Toast.LENGTH_LONG).show()
+                return
+            }
+
+            val existingLines = if (spotsFile.exists()) spotsFile.readLines().map { it.trim() }.toSet() else emptySet()
+            val importedLines = srcFile.readLines().filter { it.isNotBlank() }
+
+            var addedCount = 0
+            for (line in importedLines) {
+                val trimmed = line.trim()
+                if (trimmed !in existingLines) {
+                    spotsFile.appendText("$trimmed\n")
+                    addedCount++
+                }
+            }
+
+            loadSpots()
+            Toast.makeText(this, "Imported $addedCount new spot(s)", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
