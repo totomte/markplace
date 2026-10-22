@@ -259,8 +259,15 @@ class MainActivity : Activity() {
     }
 
     private fun openInMaps(coords: String, name: String?) {
-        val uri = Uri.parse("https://www.google.com/maps/search/?api=1&query=$coords")
-        startActivity(Intent(Intent.ACTION_VIEW, uri))
+        val label = Uri.encode(name ?: "MarkPlace spot")
+        val geoUri = Uri.parse("geo:$coords?q=$coords($label)")
+        val mapIntent = Intent(Intent.ACTION_VIEW, geoUri)
+        try {
+            startActivity(mapIntent)
+        } catch (_: Exception) {
+            val webUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=$coords")
+            startActivity(Intent(Intent.ACTION_VIEW, webUri))
+        }
     }
 
     override fun onRequestPermissionsResult(
