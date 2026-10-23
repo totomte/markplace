@@ -144,8 +144,8 @@ class MainActivity : Activity() {
 
         saveManualButton.setOnClickListener {
             val name = nameInput.text.toString().trim().ifEmpty { "Unnamed spot" }
-            val coords = extractCoords(coordsInput.text.toString()) ?: run {
-                Toast.makeText(this, "Enter coordinates like 27.915817,34.329946", Toast.LENGTH_LONG).show()
+            val coords = extractCoords(coordsInput.text.toString().trim()) ?: run {
+                Toast.makeText(this, "Rejected: \"${coordsInput.text}\" — use 27.915817,34.329946", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
             val (la, lo) = coords.split(",").map { it.toDouble() }
@@ -159,7 +159,7 @@ class MainActivity : Activity() {
         openMapsButton.setOnClickListener {
             val text = nameInput.text.toString().trim()
             val coords = extractCoords(text) ?: run {
-                Toast.makeText(this, "Enter coordinates like 27.915817,34.329946", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Rejected: \"${coordsInput.text}\" — use 27.915817,34.329946", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
             openInMaps(coords, null)
