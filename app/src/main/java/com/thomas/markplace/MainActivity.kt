@@ -282,7 +282,7 @@ class MainActivity : Activity() {
     }
 
     private fun extractCoords(text: String): String? {
-        val regex = Regex("""(-?d{1,3}.d+)s*,s*(-?d{1,3}.d+)""")
+        val regex = Regex("""(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)""")
         val m = regex.find(text) ?: return null
         val (lat, lon) = m.destructured
         val la = lat.toDouble(); val lo = lon.toDouble()
