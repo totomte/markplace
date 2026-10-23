@@ -239,8 +239,18 @@ class MainActivity : Activity() {
                 put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
                 put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents")
             }
-            val uri = resolver.insert(MediaStore.Files.getContentUri("external"), values)
-                ?: throw IllegalStateException("MediaStore insert returned null")
+            var uri = try {
+                resolver.insert(MediaStore.Files.getContentUri("external"), values)
+            } catch (e: Exception) {
+                null // SQLiteConstraintException: stale row from an older, foreign-owned file
+            }
+            if (uri == null) {
+                // Fall back to a timestamped name so the export still succeeds
+                val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, "markplace_spots_$ts.txt")
+                uri = resolver.insert(MediaStore.Files.getContentUri("external"), values)
+                    ?: throw IllegalStateException("MediaStore insert returned null")
+            }
             resolver.openOutputStream(uri)!!.use { it.write(content.toByteArray()) }
             Toast.makeText(this, "Exported to Documents/markplace_spots.txt", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
