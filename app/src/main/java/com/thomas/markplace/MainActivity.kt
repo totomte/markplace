@@ -11,6 +11,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import android.provider.MediaStore
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -225,10 +226,22 @@ class MainActivity : Activity() {
 
     private fun exportList() {
         try {
-            val docs = File("/storage/emulated/0/Documents")
-            if (!docs.exists()) docs.mkdirs()
-            val out = File(docs, "markplace_spots.txt")
-            out.writeText(spotsFile.readText())
+            val content = spotsFile.readText()
+            val resolver = contentResolver
+            // Delete any previous export we own, then write a fresh copy via MediaStore
+            resolver.delete(
+                MediaStore.Files.getContentUri("external"),
+                MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ? AND " + MediaStore.MediaColumns.DISPLAY_NAME + " = ?",
+                arrayOf("Documents/", "markplace_spots.txt")
+            )
+            val values = android.content.ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, "markplace_spots.txt")
+                put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents")
+            }
+            val uri = resolver.insert(MediaStore.Files.getContentUri("external"), values)
+                ?: throw IllegalStateException("MediaStore insert returned null")
+            resolver.openOutputStream(uri)!!.use { it.write(content.toByteArray()) }
             Toast.makeText(this, "Exported to Documents/markplace_spots.txt", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
