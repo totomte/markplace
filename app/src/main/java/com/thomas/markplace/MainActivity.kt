@@ -271,14 +271,23 @@ class MainActivity : Activity() {
             try {
                 val resolver = contentResolver
                 val collection = MediaStore.Files.getContentUri("external")
-                val sel = MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ? AND " + MediaStore.MediaColumns.DISPLAY_NAME + " = ?"
-                resolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), sel, arrayOf("Documents/", "markplace_spots.txt"), null)?.use { c ->
-                    if (c.moveToFirst()) {
+                // Match by display name anywhere first (RELATIVE_PATH values are inconsistent),
+                // preferring Documents/ if several rows match.
+                var foundUri: android.net.Uri? = null
+                resolver.query(collection, arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.RELATIVE_PATH),
+                    MediaStore.MediaColumns.DISPLAY_NAME + " = ?", arrayOf("markplace_spots.txt"), null)?.use { c ->
+                    while (c.moveToNext()) {
                         val id = c.getLong(0)
+                        val path = c.getString(1) ?: ""
                         val uri = android.content.ContentUris.withAppendedId(collection, id)
-                        resolver.openInputStream(uri)!!.bufferedReader().use { importedText = it.readText() }
-                        sourceName = "Documents/markplace_spots.txt"
+                        if (path.replace("\\", "/").trimEnd('/') == "Documents" || foundUri == null) {
+                            if (foundUri == null || path.startsWith("Documents")) foundUri = uri
+                        }
                     }
+                }
+                foundUri?.let { uri ->
+                    resolver.openInputStream(uri)!!.bufferedReader().use { importedText = it.readText() }
+                    sourceName = "MediaStore:markplace_spots.txt"
                 }
             } catch (e: Exception) {
                 // fall through to direct path
