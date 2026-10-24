@@ -265,17 +265,38 @@ class MainActivity : Activity() {
 
     private fun importList() {
         try {
-            val candidate1 = File("/storage/emulated/0/Documents/markplace_spots.txt")
-            val candidate2 = File("/storage/emulated/0/Obsidian Vault/markplace_spots.txt")
-            val srcFile = if (candidate1.exists()) candidate1 else if (candidate2.exists()) candidate2 else null
-
-            if (srcFile == null || !srcFile.exists()) {
+            // Scoped storage: read Documents file via MediaStore; Obsidian Vault falls back to direct read (usually readable)
+            var importedText: String? = null
+            var sourceName = ""
+            try {
+                val resolver = contentResolver
+                val collection = MediaStore.Files.getContentUri("external")
+                val sel = MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ? AND " + MediaStore.MediaColumns.DISPLAY_NAME + " = ?"
+                resolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), sel, arrayOf("Documents/", "markplace_spots.txt"), null)?.use { c ->
+                    if (c.moveToFirst()) {
+                        val id = c.getLong(0)
+                        val uri = android.content.ContentUris.withAppendedId(collection, id)
+                        resolver.openInputStream(uri)!!.bufferedReader().use { importedText = it.readText() }
+                        sourceName = "Documents/markplace_spots.txt"
+                    }
+                }
+            } catch (e: Exception) {
+                // fall through to direct path
+            }
+            if (importedText == null) {
+                val alt = File("/storage/emulated/0/Obsidian Vault/markplace_spots.txt")
+                if (alt.exists()) {
+                    importedText = alt.readText()
+                    sourceName = "Obsidian Vault/markplace_spots.txt"
+                }
+            }
+            if (importedText == null) {
                 Toast.makeText(this, "No markplace_spots.txt found to import", Toast.LENGTH_LONG).show()
                 return
             }
 
             val existingLines = if (spotsFile.exists()) spotsFile.readLines().map { it.trim() }.toSet() else emptySet()
-            val importedLines = srcFile.readLines().filter { it.isNotBlank() }
+            val importedLines = (importedText ?: "").lines().filter { it.isNotBlank() }
 
             var addedCount = 0
             for (line in importedLines) {
