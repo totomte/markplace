@@ -300,26 +300,49 @@ class MainActivity : Activity() {
                 }
             }
             if (importedText == null) {
-                Toast.makeText(this, "No markplace_spots.txt found to import", Toast.LENGTH_LONG).show()
+                // Last resort: let the user pick the file (SAF — always allowed)
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "text/*"
+                    putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("text/*", "text/plain", "application/octet-stream"))
+                }
+                startActivityForResult(intent, 4242)
                 return
             }
 
-            val existingLines = if (spotsFile.exists()) spotsFile.readLines().map { it.trim() }.toSet() else emptySet()
-            val importedLines = (importedText ?: "").lines().filter { it.isNotBlank() }
+            mergeImported(importedText ?: "")
+        } catch (e: Exception) {
+            Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
 
+    private fun mergeImported(text: String) {
+        try {
+            val existingLines = if (spotsFile.exists()) spotsFile.readLines().map { it.trim() }.toSet() else emptySet()
             var addedCount = 0
-            for (line in importedLines) {
+            for (line in text.lines().filter { it.isNotBlank() }) {
                 val trimmed = line.trim()
                 if (trimmed !in existingLines) {
                     spotsFile.appendText("$trimmed\n")
                     addedCount++
                 }
             }
-
             loadSpots()
             Toast.makeText(this, "Imported $addedCount new spot(s)", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 4242 && resultCode == Activity.RESULT_OK && data?.data != null) {
+            try {
+                val text = contentResolver.openInputStream(data.data!!)!!.bufferedReader().use { it.readText() }
+                mergeImported(text)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
