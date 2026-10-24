@@ -133,11 +133,16 @@ class MainActivity : Activity() {
             }
         }
 
-        // Long-press directly opens in MAPS.ME
+        // Long-press opens delete confirmation directly
         listView.setOnItemLongClickListener { _, _, position, _ ->
             if (position in spots.indices) {
-                val (name, coords, _) = spots[position]
-                openInMaps(coords, name)
+                val (name, _, _) = spots[position]
+                AlertDialog.Builder(this)
+                    .setTitle("Delete Spot?")
+                    .setMessage("Delete '$name'?")
+                    .setPositiveButton("Delete") { _, _ -> deleteSpot(position) }
+                    .setNegativeButton("Cancel", null)
+                    .show()
             }
             true
         }
